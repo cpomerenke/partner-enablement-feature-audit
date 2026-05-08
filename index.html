@@ -2139,82 +2139,136 @@ function buildComparisonTable() {
   const tbody = document.getElementById('comparison-tbody');
   const tierHeaderRow = document.getElementById('tier-header-row');
 
-  // Build tier header cells
-  // HR: 3 classic + 3 v1 + 4 v2 = 10 cols
-  // PY: 2 classic + 3 v1 + 2 v2 = 7 cols
-  // But we show HR and PY in separate sections or combined
-  // For the combined table: show HR tiers then PY tiers side by side
-
-  // We'll show HR table and PY table separately with tabs or in one big table
-  // Better: one big table with section rows
-
-  // Actually let's keep them as one table with a group separator
-  // Columns: Feature | HR (10) | PY (7)
-  // But that's 18 columns wide – we'll let it scroll
-
   if (comparisonFilter === 'hr') {
     buildHRComparisonOnly(tbody, tierHeaderRow);
   } else if (comparisonFilter === 'payroll') {
     buildPYComparisonOnly(tbody, tierHeaderRow);
   } else {
-    buildHRComparisonOnly(tbody, tierHeaderRow); // Default to HR for 'all', then add PY section
     buildCombinedComparison(tbody, tierHeaderRow);
   }
 }
 
 function buildCombinedComparison(tbody, tierHeaderRow) {
-  // Build header
-  tierHeaderRow.innerHTML =
-    HR_TIER_NAMES.map((n,i) => {
-      const isLast = [2,5].includes(i);
-      return `<th class="${isLast ? 'border-gen' : ''}" style="white-space:nowrap">${n}</th>`;
-    }).join('') + `<th colspan="7" style="background:#fff3e0;color:#b45309;font-family:var(--font-display);font-size:11px">Payroll Tiers →</th>`;
+  // Combined table: Feature | HR cols (10) | PY cols (7) = 17 data cols
+  const hrSelectedCol = selectedHRTier ? HR_TIER_MAP[selectedHRTier] : -1;
+  const pySelectedCol = selectedPYTier ? PY_TIER_MAP[selectedPYTier] : -1;
 
-  // Actually build 2 sections
-  buildHRComparisonSection(tbody);
-  buildPYComparisonSection(tbody);
-}
+  // Update the gen-header row to span all 17 columns
+  const genHeaderRow = document.querySelector('.gen-header-row');
+  genHeaderRow.innerHTML = `
+    <th rowspan="2" style="width:200px;min-width:200px;text-align:left;padding-left:16px">Feature</th>
+    <th colspan="3" class="gen-classic border-gen">Classic (HR)</th>
+    <th colspan="3" class="gen-v1 border-gen">Employment OS 2025 (HR)</th>
+    <th colspan="4" class="gen-v2 border-gen">Employment OS 2026 (HR)</th>
+    <th colspan="2" class="gen-classic border-gen" style="background:#b35c00">Classic (Payroll)</th>
+    <th colspan="3" class="gen-v1 border-gen" style="background:#7c4700">Employment OS 2025 (Payroll)</th>
+    <th colspan="2" class="gen-v2" style="background:#5a3500">Employment OS 2026 (Payroll)</th>`;
 
-function buildHRComparisonOnly(tbody, tierHeaderRow) {
+  // Tier sub-header: 10 HR tier names + 7 PY tier names
   tierHeaderRow.innerHTML =
     HR_TIER_NAMES.map((n, i) => {
       const isGen = [2,5].includes(i);
-      const selectedCol = (selectedHRTier ? HR_TIER_MAP[selectedHRTier] : -1);
-      const isSelected = i === selectedCol;
+      const isSelected = i === hrSelectedCol;
       return `<th class="${isGen ? 'border-gen' : ''}${isSelected ? ' highlight-head' : ''}" style="white-space:nowrap">${n}</th>`;
-    }).join('');
-
-  buildHRComparisonSection(tbody);
-}
-
-function buildPYComparisonOnly(tbody, tierHeaderRow) {
-  tierHeaderRow.innerHTML =
+    }).join('') +
     PY_TIER_NAMES.map((n, i) => {
       const isGen = [1,4].includes(i);
-      const selectedCol = (selectedPYTier ? PY_TIER_MAP[selectedPYTier] : -1);
-      const isSelected = i === selectedCol;
-      return `<th class="${isGen ? 'border-gen' : ''}${isSelected ? ' highlight-head' : ''}" style="white-space:nowrap">${n}</th>`;
+      const isSelected = i === pySelectedCol;
+      return `<th class="${isGen ? 'border-gen' : ''}${isSelected ? ' highlight-head' : ''}" style="white-space:nowrap;background:#fff3e0;color:#7c4700">${n}</th>`;
     }).join('');
 
-  buildPYComparisonSection(tbody);
-}
-
-function buildHRComparisonSection(tbody) {
   tbody.innerHTML = '';
-  const selectedCol = selectedHRTier ? HR_TIER_MAP[selectedHRTier] : -1;
 
+  // HR section
   let currentGroup = null;
-  const filtered = HR_FEATURES.filter(f =>
+  const hrFiltered = HR_FEATURES.filter(f =>
     !comparisonSearch || f[1].toLowerCase().includes(comparisonSearch.toLowerCase())
   );
-
-  filtered.forEach(f => {
+  hrFiltered.forEach(f => {
     if (f[0] !== currentGroup) {
       currentGroup = f[0];
       const sepRow = document.createElement('tr');
       sepRow.className = 'group-sep-row';
-      sepRow.innerHTML = `<td colspan="${1 + (comparisonFilter === 'payroll' ? 7 : 10)}">${f[0]}</td>`;
+      sepRow.innerHTML = `<td colspan="18">${f[0]}</td>`;
       tbody.appendChild(sepRow);
+    }
+    const tr = document.createElement('tr');
+    let cells = `<td style="position:sticky;left:0;background:white;z-index:1">${f[1]}</td>`;
+    for (let i = 0; i < 10; i++) {
+      const val = f[i + 2];
+      const isGen = [2,5].includes(i);
+      const isSelected = i === hrSelectedCol;
+      cells += `<td class="${isGen ? 'border-gen' : ''}${isSelected ? ' highlight-col' : ''}">${renderCell(val)}</td>`;
+    }
+    for (let i = 0; i < 7; i++) {
+      const isGen = [1,4].includes(i);
+      cells += `<td class="${isGen ? 'border-gen' : ''}" style="background:#fafafa"></td>`;
+    }
+    tr.innerHTML = cells;
+    tbody.appendChild(tr);
+  });
+
+  // Payroll section banner
+  const sep = document.createElement('tr');
+  sep.className = 'group-sep-row';
+  sep.innerHTML = `<td colspan="18" style="background:var(--eh-orange);color:white;font-size:12px;padding:10px 12px">── PAYROLL FEATURES ──────────────────────────────────────────────────</td>`;
+  tbody.appendChild(sep);
+
+  // PY section
+  currentGroup = null;
+  const pyFiltered = PY_FEATURES.filter(f =>
+    !comparisonSearch || f[1].toLowerCase().includes(comparisonSearch.toLowerCase())
+  );
+  pyFiltered.forEach(f => {
+    if (f[0] !== currentGroup) {
+      currentGroup = f[0];
+      const sepRow = document.createElement('tr');
+      sepRow.className = 'group-sep-row';
+      sepRow.innerHTML = `<td colspan="18">${f[0]}</td>`;
+      tbody.appendChild(sepRow);
+    }
+    const tr = document.createElement('tr');
+    let cells = `<td style="position:sticky;left:0;background:white;z-index:1">${f[1]}</td>`;
+    for (let i = 0; i < 10; i++) {
+      const isGen = [2,5].includes(i);
+      cells += `<td class="${isGen ? 'border-gen' : ''}" style="background:#fafafa"></td>`;
+    }
+    for (let i = 0; i < 7; i++) {
+      const val = f[i + 2];
+      const isGen = [1,4].includes(i);
+      const isSelected = i === pySelectedCol;
+      cells += `<td class="${isGen ? 'border-gen' : ''}${isSelected ? ' highlight-col' : ''}" style="${!isSelected ? 'background:rgba(255,243,224,0.35)' : ''}">${renderCell(val)}</td>`;
+    }
+    tr.innerHTML = cells;
+    tbody.appendChild(tr);
+  });
+}
+
+function buildHRComparisonOnly(tbody, tierHeaderRow) {
+  const genHeaderRow = document.querySelector('.gen-header-row');
+  genHeaderRow.innerHTML = `
+    <th rowspan="2" style="width:200px;min-width:200px;text-align:left;padding-left:16px">Feature</th>
+    <th colspan="3" class="gen-classic border-gen">Classic</th>
+    <th colspan="3" class="gen-v1 border-gen">Employment OS 2025</th>
+    <th colspan="4" class="gen-v2">Employment OS 2026</th>`;
+
+  const selectedCol = selectedHRTier ? HR_TIER_MAP[selectedHRTier] : -1;
+  tierHeaderRow.innerHTML = HR_TIER_NAMES.map((n, i) => {
+    const isGen = [2,5].includes(i);
+    const isSelected = i === selectedCol;
+    return `<th class="${isGen ? 'border-gen' : ''}${isSelected ? ' highlight-head' : ''}" style="white-space:nowrap">${n}</th>`;
+  }).join('');
+
+  tbody.innerHTML = '';
+  let currentGroup = null;
+  HR_FEATURES.filter(f => !comparisonSearch || f[1].toLowerCase().includes(comparisonSearch.toLowerCase()))
+  .forEach(f => {
+    if (f[0] !== currentGroup) {
+      currentGroup = f[0];
+      const sep = document.createElement('tr');
+      sep.className = 'group-sep-row';
+      sep.innerHTML = `<td colspan="11">${f[0]}</td>`;
+      tbody.appendChild(sep);
     }
     const tr = document.createElement('tr');
     let cells = `<td style="position:sticky;left:0;background:white;z-index:1">${f[1]}</td>`;
@@ -2229,53 +2283,46 @@ function buildHRComparisonSection(tbody) {
   });
 }
 
-function buildPYComparisonSection(tbody) {
-  if (comparisonFilter !== 'payroll') {
-    // Add a section separator
-    const sep = document.createElement('tr');
-    sep.className = 'group-sep-row';
-    sep.innerHTML = `<td colspan="11" style="background:var(--eh-orange);color:white;font-size:12px;padding:10px 12px">
-      ── PAYROLL FEATURES ──────────────────────────────────────────────────</td>`;
-    tbody.appendChild(sep);
-  } else {
-    tbody.innerHTML = '';
-  }
+function buildPYComparisonOnly(tbody, tierHeaderRow) {
+  const genHeaderRow = document.querySelector('.gen-header-row');
+  genHeaderRow.innerHTML = `
+    <th rowspan="2" style="width:200px;min-width:200px;text-align:left;padding-left:16px">Feature</th>
+    <th colspan="2" class="gen-classic border-gen">Classic</th>
+    <th colspan="3" class="gen-v1 border-gen">Employment OS 2025</th>
+    <th colspan="2" class="gen-v2">Employment OS 2026</th>`;
 
   const selectedCol = selectedPYTier ? PY_TIER_MAP[selectedPYTier] : -1;
+  tierHeaderRow.innerHTML = PY_TIER_NAMES.map((n, i) => {
+    const isGen = [1,4].includes(i);
+    const isSelected = i === selectedCol;
+    return `<th class="${isGen ? 'border-gen' : ''}${isSelected ? ' highlight-head' : ''}" style="white-space:nowrap">${n}</th>`;
+  }).join('');
+
+  tbody.innerHTML = '';
   let currentGroup = null;
-  const colCount = comparisonFilter === 'payroll' ? 7 : 10;
-
-  const filtered = PY_FEATURES.filter(f =>
-    !comparisonSearch || f[1].toLowerCase().includes(comparisonSearch.toLowerCase())
-  );
-
-  filtered.forEach(f => {
+  PY_FEATURES.filter(f => !comparisonSearch || f[1].toLowerCase().includes(comparisonSearch.toLowerCase()))
+  .forEach(f => {
     if (f[0] !== currentGroup) {
       currentGroup = f[0];
-      const sepRow = document.createElement('tr');
-      sepRow.className = 'group-sep-row';
-      sepRow.innerHTML = `<td colspan="${1 + colCount}">${f[0]}</td>`;
-      tbody.appendChild(sepRow);
+      const sep = document.createElement('tr');
+      sep.className = 'group-sep-row';
+      sep.innerHTML = `<td colspan="8">${f[0]}</td>`;
+      tbody.appendChild(sep);
     }
     const tr = document.createElement('tr');
     let cells = `<td style="position:sticky;left:0;background:white;z-index:1">${f[1]}</td>`;
-
-    if (comparisonFilter === 'payroll') {
-      for (let i = 0; i < 7; i++) {
-        const val = f[i + 2];
-        const isGen = [1,4].includes(i);
-        const isSelected = i === selectedCol;
-        cells += `<td class="${isGen ? 'border-gen' : ''}${isSelected ? ' highlight-col' : ''}">${renderCell(val)}</td>`;
-      }
-    } else {
-      // In combined view, show 10 empty cols for HR space + 7 payroll
-      for (let i = 0; i < 10; i++) cells += '<td style="background:#fafafa"></td>';
-      // Actually in combined mode this doesn't work well - skip the extra columns
+    for (let i = 0; i < 7; i++) {
+      const val = f[i + 2];
+      const isGen = [1,4].includes(i);
+      const isSelected = i === selectedCol;
+      cells += `<td class="${isGen ? 'border-gen' : ''}${isSelected ? ' highlight-col' : ''}">${renderCell(val)}</td>`;
     }
     tr.innerHTML = cells;
     tbody.appendChild(tr);
   });
 }
+
+// buildHRComparisonSection and buildPYComparisonSection removed — logic inlined above
 
 function renderCell(val) {
   if (!val || val === 'o') return `<span class="cross">○</span>`;
@@ -2290,29 +2337,6 @@ function filterComparison(filter, btn) {
   comparisonFilter = filter;
   document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
-
-  // Update gen header
-  const genHeaderRow = document.querySelector('.gen-header-row');
-  if (filter === 'hr') {
-    genHeaderRow.innerHTML = `
-      <th rowspan="2" style="width:200px;min-width:200px;text-align:left;padding-left:16px">Feature</th>
-      <th colspan="3" class="gen-classic border-gen">Classic</th>
-      <th colspan="3" class="gen-v1 border-gen">Employment OS 2025</th>
-      <th colspan="4" class="gen-v2">Employment OS 2026</th>`;
-  } else if (filter === 'payroll') {
-    genHeaderRow.innerHTML = `
-      <th rowspan="2" style="width:200px;min-width:200px;text-align:left;padding-left:16px">Feature</th>
-      <th colspan="2" class="gen-classic border-gen">Classic</th>
-      <th colspan="3" class="gen-v1 border-gen">Employment OS 2025</th>
-      <th colspan="2" class="gen-v2">Employment OS 2026</th>`;
-  } else {
-    genHeaderRow.innerHTML = `
-      <th rowspan="2" style="width:200px;min-width:200px;text-align:left;padding-left:16px">Feature</th>
-      <th colspan="3" class="gen-classic border-gen">Classic (HR)</th>
-      <th colspan="3" class="gen-v1 border-gen">Employment OS 2025 (HR)</th>
-      <th colspan="4" class="gen-v2">Employment OS 2026 (HR)</th>`;
-  }
-
   buildComparisonTable();
 }
 
@@ -2324,6 +2348,9 @@ function searchFeatures(val) {
 /* ══════════════════════════════════════════════════════════════════
    INIT
 ══════════════════════════════════════════════════════════════════ */
+document.addEventListener('DOMContentLoaded', function() {
+  buildComparisonTable();
+});
 /* ══════════════════════════════════════════════════════════════════
    EXPORT AUDIT
 ══════════════════════════════════════════════════════════════════ */
