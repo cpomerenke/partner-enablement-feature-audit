@@ -1347,8 +1347,7 @@ body:has(#view-comparison.active) .main-content {
     </div>
 
     <div class="comparison-controls">
-      <button class="filter-btn active" onclick="filterComparison('all', this)">All Features</button>
-      <button class="filter-btn" onclick="filterComparison('hr', this)">HR Only</button>
+      <button class="filter-btn active" onclick="filterComparison('hr', this)">HR Only</button>
       <button class="filter-btn" onclick="filterComparison('payroll', this)">Payroll Only</button>
       <input type="text" class="search-input" placeholder="🔍  Search features…" oninput="searchFeatures(this.value)" />
     </div>
@@ -2132,116 +2131,19 @@ function updateAuditProgress() {
 /* ══════════════════════════════════════════════════════════════════
    FULL COMPARISON VIEW
 ══════════════════════════════════════════════════════════════════ */
-let comparisonFilter = 'all';
+let comparisonFilter = 'hr';
 let comparisonSearch = '';
 
 function buildComparisonTable() {
   const tbody = document.getElementById('comparison-tbody');
   const tierHeaderRow = document.getElementById('tier-header-row');
 
-  if (comparisonFilter === 'hr') {
-    buildHRComparisonOnly(tbody, tierHeaderRow);
-  } else if (comparisonFilter === 'payroll') {
+  if (comparisonFilter === 'payroll') {
     buildPYComparisonOnly(tbody, tierHeaderRow);
   } else {
-    buildCombinedComparison(tbody, tierHeaderRow);
+    // Default to HR-only view
+    buildHRComparisonOnly(tbody, tierHeaderRow);
   }
-}
-
-function buildCombinedComparison(tbody, tierHeaderRow) {
-  // Combined table: Feature | HR cols (10) | PY cols (7) = 17 data cols
-  const hrSelectedCol = selectedHRTier ? HR_TIER_MAP[selectedHRTier] : -1;
-  const pySelectedCol = selectedPYTier ? PY_TIER_MAP[selectedPYTier] : -1;
-
-  // Update the gen-header row to span all 17 columns
-  const genHeaderRow = document.querySelector('.gen-header-row');
-  genHeaderRow.innerHTML = `
-    <th rowspan="2" style="width:200px;min-width:200px;text-align:left;padding-left:16px">Feature</th>
-    <th colspan="3" class="gen-classic border-gen">Classic (HR)</th>
-    <th colspan="3" class="gen-v1 border-gen">Employment OS 2025 (HR)</th>
-    <th colspan="4" class="gen-v2 border-gen">Employment OS 2026 (HR)</th>
-    <th colspan="2" class="gen-classic border-gen" style="background:#b35c00">Classic (Payroll)</th>
-    <th colspan="3" class="gen-v1 border-gen" style="background:#7c4700">Employment OS 2025 (Payroll)</th>
-    <th colspan="2" class="gen-v2" style="background:#5a3500">Employment OS 2026 (Payroll)</th>`;
-
-  // Tier sub-header: 10 HR tier names + 7 PY tier names
-  tierHeaderRow.innerHTML =
-    HR_TIER_NAMES.map((n, i) => {
-      const isGen = [2,5].includes(i);
-      const isSelected = i === hrSelectedCol;
-      return `<th class="${isGen ? 'border-gen' : ''}${isSelected ? ' highlight-head' : ''}" style="white-space:nowrap">${n}</th>`;
-    }).join('') +
-    PY_TIER_NAMES.map((n, i) => {
-      const isGen = [1,4].includes(i);
-      const isSelected = i === pySelectedCol;
-      return `<th class="${isGen ? 'border-gen' : ''}${isSelected ? ' highlight-head' : ''}" style="white-space:nowrap;background:#fff3e0;color:#7c4700">${n}</th>`;
-    }).join('');
-
-  tbody.innerHTML = '';
-
-  // HR section
-  let currentGroup = null;
-  const hrFiltered = HR_FEATURES.filter(f =>
-    !comparisonSearch || f[1].toLowerCase().includes(comparisonSearch.toLowerCase())
-  );
-  hrFiltered.forEach(f => {
-    if (f[0] !== currentGroup) {
-      currentGroup = f[0];
-      const sepRow = document.createElement('tr');
-      sepRow.className = 'group-sep-row';
-      sepRow.innerHTML = `<td colspan="18">${f[0]}</td>`;
-      tbody.appendChild(sepRow);
-    }
-    const tr = document.createElement('tr');
-    let cells = `<td style="position:sticky;left:0;background:white;z-index:1">${f[1]}</td>`;
-    for (let i = 0; i < 10; i++) {
-      const val = f[i + 2];
-      const isGen = [2,5].includes(i);
-      const isSelected = i === hrSelectedCol;
-      cells += `<td class="${isGen ? 'border-gen' : ''}${isSelected ? ' highlight-col' : ''}">${renderCell(val)}</td>`;
-    }
-    for (let i = 0; i < 7; i++) {
-      const isGen = [1,4].includes(i);
-      cells += `<td class="${isGen ? 'border-gen' : ''}" style="background:#fafafa"></td>`;
-    }
-    tr.innerHTML = cells;
-    tbody.appendChild(tr);
-  });
-
-  // Payroll section banner
-  const sep = document.createElement('tr');
-  sep.className = 'group-sep-row';
-  sep.innerHTML = `<td colspan="18" style="background:var(--eh-orange);color:white;font-size:12px;padding:10px 12px">── PAYROLL FEATURES ──────────────────────────────────────────────────</td>`;
-  tbody.appendChild(sep);
-
-  // PY section
-  currentGroup = null;
-  const pyFiltered = PY_FEATURES.filter(f =>
-    !comparisonSearch || f[1].toLowerCase().includes(comparisonSearch.toLowerCase())
-  );
-  pyFiltered.forEach(f => {
-    if (f[0] !== currentGroup) {
-      currentGroup = f[0];
-      const sepRow = document.createElement('tr');
-      sepRow.className = 'group-sep-row';
-      sepRow.innerHTML = `<td colspan="18">${f[0]}</td>`;
-      tbody.appendChild(sepRow);
-    }
-    const tr = document.createElement('tr');
-    let cells = `<td style="position:sticky;left:0;background:white;z-index:1">${f[1]}</td>`;
-    for (let i = 0; i < 10; i++) {
-      const isGen = [2,5].includes(i);
-      cells += `<td class="${isGen ? 'border-gen' : ''}" style="background:#fafafa"></td>`;
-    }
-    for (let i = 0; i < 7; i++) {
-      const val = f[i + 2];
-      const isGen = [1,4].includes(i);
-      const isSelected = i === pySelectedCol;
-      cells += `<td class="${isGen ? 'border-gen' : ''}${isSelected ? ' highlight-col' : ''}" style="${!isSelected ? 'background:rgba(255,243,224,0.35)' : ''}">${renderCell(val)}</td>`;
-    }
-    tr.innerHTML = cells;
-    tbody.appendChild(tr);
-  });
 }
 
 function buildHRComparisonOnly(tbody, tierHeaderRow) {
@@ -2587,8 +2489,26 @@ function runQuiz() {
         </div>
       </div>`;
   } else {
-    // Feature NOT in current tier — find lowest EOS v1 2026 tier that has it
-    // EOS v1 2026 tiers are columns 6–9 (indices in HR_FEATURES at offsets 8–11)
+    // Feature NOT in current tier — find lowest equivalent-or-higher EOS 2026 tier that has it.
+    // Equivalency mapping (minimum EOS 2026 tier that can be offered as an upgrade for each current tier):
+    //   HR Standard / Lite         → Essentials (index 0)
+    //   HR Premium                 → Engage     (index 1)
+    //   HR Platinum / Plus         → Elite      (index 2)
+    //   Unlimited (any generation) → Unlimited  (index 3)
+    //   EOS 2026 tiers             → themselves
+    const TIER_MIN_FLOOR = {
+      'hr_std_classic':    0, // Essentials
+      'hr_prem_classic':   1, // Engage
+      'hr_plat_classic':   2, // Elite
+      'hr_eos1_lite':      0, // Essentials
+      'hr_eos1_plus':      2, // Elite
+      'hr_eos1_unlimited': 3, // Unlimited
+      'hr_eos2_essentials':0,
+      'hr_eos2_engage':    1,
+      'hr_eos2_elite':     2,
+      'hr_eos2_unlimited': 3,
+    };
+
     const eos2Tiers = [
       { key: 'hr_eos2_essentials', col: 6 },
       { key: 'hr_eos2_engage',     col: 7 },
@@ -2596,8 +2516,12 @@ function runQuiz() {
       { key: 'hr_eos2_unlimited',  col: 9 },
     ];
 
+    // Only consider EOS 2026 tiers at or above the equivalency floor for the current tier
+    const minIdx = TIER_MIN_FLOOR[tierKey] ?? 0;
+    const eligibleTiers = eos2Tiers.slice(minIdx);
+
     let upgradeTier = null;
-    for (const t of eos2Tiers) {
+    for (const t of eligibleTiers) {
       const val = feature[t.col + 2];
       if (val && val !== 'o') {
         upgradeTier = t;
@@ -2606,30 +2530,69 @@ function runQuiz() {
     }
 
     if (!upgradeTier) {
-      html = `
-        <div style="background:#fff8e1;border:2px solid var(--eh-orange);border-radius:var(--radius-lg);padding:28px 32px;margin-bottom:20px;">
-          <div style="font-size:28px;margin-bottom:12px;">⚠️</div>
-          <div style="font-family:var(--font-display);font-size:18px;font-weight:700;color:var(--eh-off-black);margin-bottom:8px;">Feature not currently available</div>
-          <div style="font-size:15px;color:var(--text-secondary);">
-            <strong>${featureName}</strong> is not currently available on any Employment OS 2026 tier. Please contact your Partner Manager.
-          </div>
-        </div>`;
+      // Check whether the feature exists on any EOS 2026 tier at all (even below the floor)
+      const anyEos2 = eos2Tiers.find(t => {
+        const v = feature[t.col + 2];
+        return v && v !== 'o';
+      });
+
+      if (anyEos2) {
+        // Feature is available on EOS 2026, but only on a tier below the current tier's equivalency
+        // — recommending it would be a side-grade or downgrade, so flag it for Partner Manager review.
+        const lowerTierName = HR_TIER_NAMES_FULL[anyEos2.col];
+        html = `
+          <div style="background:#fff8e1;border:2px solid var(--eh-orange);border-radius:var(--radius-lg);padding:28px 32px;margin-bottom:20px;">
+            <div style="font-size:28px;margin-bottom:12px;">⚠️</div>
+            <div style="font-family:var(--font-display);font-size:18px;font-weight:700;color:var(--eh-off-black);margin-bottom:8px;">No equivalent-or-higher upgrade available</div>
+            <div style="font-size:15px;color:var(--text-secondary);line-height:1.55;">
+              <strong>${featureName}</strong> is available on <strong>${lowerTierName}</strong>, but that tier sits below <strong>${currentTierName}</strong> in the equivalency mapping — moving across would mean losing features the client already has.
+              <br><br>Please contact your Partner Manager to discuss the right path forward.
+            </div>
+          </div>`;
+      } else {
+        html = `
+          <div style="background:#fff8e1;border:2px solid var(--eh-orange);border-radius:var(--radius-lg);padding:28px 32px;margin-bottom:20px;">
+            <div style="font-size:28px;margin-bottom:12px;">⚠️</div>
+            <div style="font-family:var(--font-display);font-size:18px;font-weight:700;color:var(--eh-off-black);margin-bottom:8px;">Feature not currently available</div>
+            <div style="font-size:15px;color:var(--text-secondary);">
+              <strong>${featureName}</strong> is not currently available on any Employment OS 2026 tier. Please contact your Partner Manager.
+            </div>
+          </div>`;
+      }
     } else {
       const upgradeTierName = HR_TIER_NAMES_FULL[upgradeTier.col];
       const upgradeCol = upgradeTier.col;
 
+      // Detect if this feature requires the T&A add-on on the recommended tier.
+      // For older subscriptions (Classic, EOS 2025) moving to EOS 2026 Essentials / Engage / Elite,
+      // T&A features (rostering, advanced timesheets, geofencing, time clock, etc.) come through the
+      // T&A add-on — so both the tier upgrade AND the add-on are needed. Unlimited includes them.
+      const upgradeVal = feature[upgradeCol + 2];
+      const requiresTAAddOn = upgradeVal && typeof upgradeVal === 'string' && upgradeVal.includes('ADD-ON');
+
+      const taAddOnBanner = requiresTAAddOn ? `
+        <div style="background:#fff3e0;border:2px solid var(--eh-orange);border-radius:var(--radius-md);padding:18px 22px;margin-bottom:16px;display:flex;gap:14px;align-items:flex-start;">
+          <div style="font-size:22px;line-height:1;flex-shrink:0;">📌</div>
+          <div>
+            <div style="font-family:var(--font-display);font-size:14px;font-weight:700;color:#b45309;margin-bottom:6px;">Tier upgrade + T&A add-on required</div>
+            <div style="font-size:13px;color:var(--text-secondary);line-height:1.55;">
+              <strong style="color:var(--text-primary);">${featureName}</strong> is a Time & Attendance feature. On <strong>${upgradeTierName}</strong>, it's delivered via the <strong>T&A add-on</strong> — meaning the client will need both the tier upgrade <em>and</em> the add-on. Alternatively, <strong>Employment OS 2026 Unlimited</strong> includes T&A features without a separate add-on.
+            </div>
+          </div>
+        </div>` : '';
+
       // What you'd GAIN: features in upgrade tier not in current tier
       const gained = HR_FEATURES.filter(f => {
-        const upgradeVal = f[upgradeCol + 2];
+        const upVal = f[upgradeCol + 2];
         const currentV = f[currentCol + 2];
-        return upgradeVal && upgradeVal !== 'o' && (!currentV || currentV === 'o');
+        return upVal && upVal !== 'o' && (!currentV || currentV === 'o');
       }).map(f => f[1]);
 
       // What you'd LOSE: features in current tier not in upgrade tier
       const lost = HR_FEATURES.filter(f => {
         const currentV = f[currentCol + 2];
-        const upgradeVal = f[upgradeCol + 2];
-        return currentV && currentV !== 'o' && (!upgradeVal || upgradeVal === 'o');
+        const upVal = f[upgradeCol + 2];
+        return currentV && currentV !== 'o' && (!upVal || upVal === 'o');
       }).map(f => f[1]);
 
       const gainedHtml = gained.length > 0
@@ -2648,8 +2611,10 @@ function runQuiz() {
         <div style="background:linear-gradient(135deg,var(--eh-dark-violet),var(--eh-deep-violet));border-radius:var(--radius-lg);padding:24px 28px;margin-bottom:16px;color:white;">
           <div style="font-size:22px;margin-bottom:8px;">🔼</div>
           <div style="font-family:var(--font-display);font-size:20px;font-weight:700;margin-bottom:4px;">${upgradeTierName}</div>
-          <div style="font-size:15px;opacity:0.85;">includes <strong>${featureName}</strong></div>
+          <div style="font-size:15px;opacity:0.85;">includes <strong>${featureName}</strong>${requiresTAAddOn ? ' <span style="background:#FFA000;color:white;font-size:11px;font-weight:700;padding:2px 8px;border-radius:100px;margin-left:4px;letter-spacing:0.3px;">via T&A Add-On</span>' : ''}</div>
         </div>
+
+        ${taAddOnBanner}
 
         <div style="background:rgba(186,252,88,0.1);border:2px solid var(--eh-neon-green);border-radius:var(--radius-md);padding:20px 24px;margin-bottom:16px;">
           <div style="font-family:var(--font-display);font-size:13px;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;color:#3a7d00;margin-bottom:12px;">✨ Additional features included in this upgrade (beyond what you asked for)</div>
@@ -2702,4 +2667,3 @@ observer.observe(document.getElementById('audit-feature-list'), { childList: tru
 </script>
 </body>
 </html>
-
